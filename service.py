@@ -1,4 +1,3 @@
-from github_client import GithubClient
 import requests
 
 class RepositoryNotFoundError(Exception):
