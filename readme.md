@@ -2,7 +2,7 @@
 
 A FastAPI-based backend that integrates with the GitHub REST API to retrieve and expose repository information through clean, structured API endpoints.
 
-This project is being built as a learning project focused on **backend engineering, external API integration, API design, and eventually AI-powered repository analysis**.
+This project is being built as a learning project focused on **backend engineering, external API integration, API design, testing, and eventually AI-powered repository analysis**.
 
 ## 🚀 Current Features
 
@@ -16,7 +16,9 @@ This project is being built as a learning project focused on **backend engineeri
 * Repository statistics endpoint
 * HTTP error handling
 * Request timeout handling
-* Clean separation between API, service, and external API client
+* Response transformation
+* Unit testing with pytest
+* Mocking external dependencies
 
 ## 🏗️ Architecture
 
@@ -63,10 +65,12 @@ github-repo-intelligence/
 ├── github_client.py
 ├── service.py
 ├── schemas.py
+├── tests/
+│   └── test_service.py
 ├── .env
 ├── .gitignore
-├── requirements.txt
-└── README.md
+├── README.md
+└── requirements.txt
 ```
 
 > `.env` and `.venv` should not be committed to GitHub.
@@ -124,7 +128,7 @@ The API will be available at:
 http://127.0.0.1:8000
 ```
 
-Interactive API documentation is available through FastAPI's Swagger UI:
+Interactive API documentation:
 
 ```text
 http://127.0.0.1:8000/docs
@@ -180,9 +184,45 @@ Example response:
 }
 ```
 
+## 🧪 Testing
+
+The project uses **pytest** for unit testing.
+
+Run the tests with:
+
+```bash
+python -m pytest
+```
+
+The service layer is tested independently from GitHub by using mocks.
+
+### Current test coverage
+
+The current tests verify:
+
+* Successful repository retrieval
+* Repository-not-found handling
+* Translation of GitHub HTTP errors into application-specific exceptions
+
+External GitHub API calls are **not made during these unit tests**.
+
+Instead, `unittest.mock.Mock` is used to simulate the GitHub client.
+
+```text
+Test
+  ↓
+RepositoryService
+  ↓
+Mock GithubClient
+  ↓
+Fake response / simulated error
+```
+
+This keeps the tests fast, deterministic, and independent of the GitHub API.
+
 ## 🛡️ Error Handling
 
-The application handles common GitHub API failures and converts them into appropriate API responses.
+The application handles common GitHub API failures and converts them into application-level responses.
 
 For example:
 
@@ -192,7 +232,10 @@ Repository not found
 404 Not Found
 ```
 
-GitHub/API failures are translated into application-level errors rather than exposing low-level implementation details directly to the API consumer.
+The service layer translates low-level HTTP/request exceptions into application-specific exceptions such as:
+
+* `RepositoryNotFoundError`
+* `GithubAPIError`
 
 ## 🔐 Environment Variables
 
@@ -208,7 +251,7 @@ Secrets are excluded from version control using `.gitignore`.
 
 ## 🧠 What I'm Learning
 
-This project is designed to practice real-world backend concepts:
+This project is designed to practice real-world backend and AI engineering concepts:
 
 * Python application architecture
 * FastAPI
@@ -221,22 +264,27 @@ This project is designed to practice real-world backend concepts:
 * Pydantic
 * Service-layer architecture
 * API response transformation
-* Testing external dependencies
-* PostgreSQL persistence
+* pytest
+* Unit testing
+* Mocking external dependencies
 
 ## 🛣️ Roadmap
 
-The project will evolve beyond simply retrieving GitHub data.
+### Backend
 
-### Backend improvements
-
-* [ ] Add automated tests
-* [ ] Mock GitHub API calls
-* [ ] Improve API error handling
-* [ ] Add caching
-* [ ] Add PostgreSQL persistence
+* [x] FastAPI API
+* [x] GitHub API integration
+* [x] GitHub authentication
+* [x] Service layer
+* [x] Pydantic response models
+* [x] Error handling
+* [x] Unit testing
+* [x] Mocking external dependencies
+* [ ] PostgreSQL persistence
+* [ ] Database repository layer
+* [ ] Caching
+* [ ] Docker
 * [ ] Improve API documentation
-* [ ] Dockerize the application
 
 ### Repository Intelligence
 
@@ -262,16 +310,18 @@ AI / LLM
 
 Eventually, the project will evolve into an **AI-powered GitHub Repository Intelligence API** capable of analyzing repositories rather than simply retrieving their metadata.
 
-## 🎯 Project Goal
+## 🎯 Long-Term Goal
 
-The long-term goal of this project is to combine **backend engineering + external APIs + databases + LLMs** into a practical AI engineering project.
+The goal of this project is to combine **backend engineering + external APIs + databases + LLMs** into a practical AI engineering project.
 
-The project will progressively introduce concepts such as:
+The planned progression is:
 
 ```text
 FastAPI
    ↓
 External APIs
+   ↓
+Testing
    ↓
 PostgreSQL
    ↓
@@ -284,8 +334,10 @@ RAG
 AI-powered Repository Intelligence
 ```
 
-## 📚 Status
+## 📚 Project Status
 
 **Current status:** 🚧 In development
 
-The current version focuses on the backend foundation and GitHub API integration. AI-powered repository analysis will be added in later stages.
+The current version has a working FastAPI backend, GitHub API integration, structured responses, error handling, and unit tests with mocked external dependencies.
+
+The next development stage is **PostgreSQL persistence**.
