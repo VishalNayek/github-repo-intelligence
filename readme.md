@@ -1,10 +1,10 @@
 # GitHub Repository Intelligence API
 
-A FastAPI-based backend that integrates with the GitHub REST API to retrieve and expose repository information through clean, structured API endpoints.
+A FastAPI-based backend that integrates with the GitHub REST API to retrieve repository information, expose structured API responses, and persist repository data in PostgreSQL.
 
-This project is being built as a learning project focused on **backend engineering, external API integration, API design, testing, and eventually AI-powered repository analysis**.
+This project was built to practice real-world **backend engineering concepts** including external API integration, authentication, service-layer architecture, testing, SQLAlchemy, and PostgreSQL.
 
-## 🚀 Current Features
+## 🚀 Features
 
 * FastAPI REST API
 * GitHub REST API integration
@@ -16,45 +16,72 @@ This project is being built as a learning project focused on **backend engineeri
 * Repository statistics endpoint
 * HTTP error handling
 * Request timeout handling
-* Response transformation
+* API response transformation
 * Unit testing with pytest
-* Mocking external dependencies
+* Mocking external API dependencies
+* PostgreSQL persistence
+* SQLAlchemy ORM
+* Repository pattern for database access
+* Prevents duplicate repository records
+* Updates existing repository data when fetched again
 
 ## 🏗️ Architecture
 
 ```text
-                    Client
-                      │
-                      ▼
-                  FastAPI
-                      │
-                      ▼
-              RepositoryService
-                      │
-                      ▼
-                GithubClient
-                      │
-                      ▼
-                 GitHub API
+                         Client
+                           │
+                           ▼
+                        FastAPI
+                           │
+                           ▼
+                  RepositoryService
+                    │            │
+                    │            │
+                    ▼            ▼
+              GithubClient   RepoRepository
+                    │            │
+                    ▼            ▼
+                GitHub API   SQLAlchemy
+                                 │
+                                 ▼
+                            PostgreSQL
 ```
 
 ### Components
 
-**FastAPI**
+#### FastAPI
 
-Handles HTTP requests and exposes the application's REST endpoints.
+Handles HTTP requests and exposes the application's REST API.
 
-**RepositoryService**
+#### RepositoryService
 
-Contains application-level logic and translates GitHub API errors into application-specific exceptions.
+Contains application-level logic and coordinates between the GitHub API client and database repository.
 
-**GithubClient**
+#### GithubClient
 
-Responsible for communicating with the GitHub REST API, including authentication, HTTP requests, timeouts, and response handling.
+Responsible for communicating with the GitHub REST API.
 
-**Pydantic Schemas**
+Responsibilities include:
 
-Define the structure of the data returned by the API.
+* Authentication
+* HTTP requests
+* Request timeouts
+* HTTP error handling
+* Parsing GitHub responses
+
+#### RepoRepository
+
+Handles PostgreSQL persistence using SQLAlchemy.
+
+Responsibilities include:
+
+* Finding repositories
+* Creating repository records
+* Updating existing repository records
+
+#### Pydantic Schemas
+
+Define the structure of API responses and provide response validation.
 
 ## 📁 Project Structure
 
@@ -64,9 +91,14 @@ github-repo-intelligence/
 ├── main.py
 ├── github_client.py
 ├── service.py
+├── repository.py
+├── models.py
+├── database.py
 ├── schemas.py
+│
 ├── tests/
 │   └── test_service.py
+│
 ├── .env
 ├── .gitignore
 ├── README.md
@@ -104,7 +136,21 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 4. Configure GitHub authentication
+### 4. Configure PostgreSQL
+
+Create a PostgreSQL database:
+
+```sql
+CREATE DATABASE github_intelligence;
+```
+
+The application expects PostgreSQL to be available on:
+
+```text
+localhost:5432
+```
+
+### 5. Configure GitHub authentication
 
 Create a `.env` file in the project root:
 
@@ -112,11 +158,11 @@ Create a `.env` file in the project root:
 GITHUB_TOKEN=your_github_token
 ```
 
-The token is used to authenticate requests made by the application to the GitHub API.
+The token is used to authenticate requests made by the application to GitHub.
 
 **Never commit your `.env` file.**
 
-### 5. Run the application
+### 6. Run the application
 
 ```bash
 uvicorn main:api --reload
@@ -148,7 +194,7 @@ Example:
 GET /repositories/VishalNayek/task-manager
 ```
 
-Returns structured repository information such as:
+Returns structured repository information including:
 
 * Repository name
 * Full repository name
@@ -184,6 +230,57 @@ Example response:
 }
 ```
 
+## 🗄️ PostgreSQL Persistence
+
+Repository information retrieved from GitHub is persisted in PostgreSQL.
+
+The application uses:
+
+```text
+SQLAlchemy ORM
+       ↓
+PostgreSQL
+       ↓
+github_intelligence
+       ↓
+repositories
+```
+
+The repository model stores:
+
+* Owner
+* Repository name
+* Full name
+* Description
+* Language
+* Topics
+* Stars
+* Forks
+* Open issues
+* Default branch
+
+### Insert / Update Behavior
+
+When a repository is requested:
+
+```text
+GitHub API
+     ↓
+RepositoryService
+     ↓
+Check PostgreSQL
+     │
+     ├── Repository exists
+     │       ↓
+     │     UPDATE
+     │
+     └── Repository doesn't exist
+             ↓
+           INSERT
+```
+
+This prevents duplicate records for the same repository.
+
 ## 🧪 Testing
 
 The project uses **pytest** for unit testing.
@@ -196,17 +293,17 @@ python -m pytest
 
 The service layer is tested independently from GitHub by using mocks.
 
-### Current test coverage
+### Current tests
 
-The current tests verify:
+The tests cover:
 
 * Successful repository retrieval
 * Repository-not-found handling
 * Translation of GitHub HTTP errors into application-specific exceptions
 
-External GitHub API calls are **not made during these unit tests**.
+External GitHub API calls are not required for these service tests.
 
-Instead, `unittest.mock.Mock` is used to simulate the GitHub client.
+Instead, `unittest.mock.Mock` is used to simulate the GitHub client:
 
 ```text
 Test
@@ -218,21 +315,25 @@ Mock GithubClient
 Fake response / simulated error
 ```
 
-This keeps the tests fast, deterministic, and independent of the GitHub API.
+This makes the tests fast and independent of the GitHub API.
 
 ## 🛡️ Error Handling
 
-The application handles common GitHub API failures and converts them into application-level responses.
+The application translates low-level GitHub request errors into application-specific exceptions.
 
 For example:
 
 ```text
-Repository not found
-        ↓
-404 Not Found
+GitHub 404
+   ↓
+RepositoryNotFoundError
+   ↓
+FastAPI
+   ↓
+HTTP 404
 ```
 
-The service layer translates low-level HTTP/request exceptions into application-specific exceptions such as:
+The project currently uses:
 
 * `RepositoryNotFoundError`
 * `GithubAPIError`
@@ -249,95 +350,121 @@ Environment variables are loaded using `python-dotenv`.
 
 Secrets are excluded from version control using `.gitignore`.
 
-## 🧠 What I'm Learning
+## 🧠 Concepts Practiced
 
-This project is designed to practice real-world backend and AI engineering concepts:
-
-* Python application architecture
-* FastAPI
-* REST API design
-* External API integration
-* Authentication
-* Environment variables
-* HTTP status codes
-* Exception handling
-* Pydantic
-* Service-layer architecture
-* API response transformation
-* pytest
-* Unit testing
-* Mocking external dependencies
-
-## 🛣️ Roadmap
+This project was built to practice:
 
 ### Backend
 
-* [x] FastAPI API
-* [x] GitHub API integration
-* [x] GitHub authentication
-* [x] Service layer
-* [x] Pydantic response models
-* [x] Error handling
-* [x] Unit testing
-* [x] Mocking external dependencies
-* [ ] PostgreSQL persistence
-* [ ] Database repository layer
-* [ ] Caching
-* [ ] Docker
-* [ ] Improve API documentation
+* Python
+* Object-oriented programming
+* FastAPI
+* REST API design
+* Pydantic
+* Service-layer architecture
+* Repository pattern
+* Dependency injection
 
-### Repository Intelligence
+### External APIs
 
-The next major goal is to turn repository data into meaningful insights.
+* HTTP requests
+* GitHub REST API
+* API authentication
+* Bearer tokens
+* HTTP status codes
+* Request timeouts
+* Exception handling
+
+### Databases
+
+* PostgreSQL
+* SQLAlchemy
+* SQLAlchemy ORM
+* Database sessions
+* Models
+* CRUD operations
+* Querying with `select()`
+* Insert/update persistence
+
+### Testing
+
+* pytest
+* Unit testing
+* Mocking
+* `unittest.mock`
+* Testing exceptions
+* Testing external dependencies without making real API calls
+
+## 🛣️ Project Status
+
+**Status: ✅ Complete**
+
+The project currently provides a working backend that:
+
+```text
+Client
+  ↓
+FastAPI
+  ↓
+RepositoryService
+  ↓
+GitHub API
+  ↓
+Repository data
+  ↓
+PostgreSQL
+```
+
+It also includes unit tests for the service layer and prevents duplicate repository records by updating existing records when the repository has already been stored.
+
+## 🔮 Future Direction
+
+The original long-term idea for this project was to evolve it into an AI-powered GitHub Repository Intelligence system.
+
+A possible future architecture would be:
 
 ```text
 GitHub Repository
-        │
-        ▼
+       ↓
 Repository Data
-        │
-        ▼
-Analysis Layer
-        │
-        ▼
-AI / LLM
-        │
-        ├── Repository Summary
-        ├── Architecture Explanation
-        ├── Codebase Insights
-        └── Improvement Suggestions
+       ↓
+Code / Repository Analysis
+       ↓
+LLM
+       ↓
+AI-generated Insights
 ```
 
-Eventually, the project will evolve into an **AI-powered GitHub Repository Intelligence API** capable of analyzing repositories rather than simply retrieving their metadata.
+Potential future capabilities could include:
 
-## 🎯 Long-Term Goal
+* Repository summaries
+* Architecture explanations
+* Codebase insights
+* Improvement suggestions
+* AI-powered repository analysis
 
-The goal of this project is to combine **backend engineering + external APIs + databases + LLMs** into a practical AI engineering project.
+These features are intentionally **outside the scope of the current project**.
 
-The planned progression is:
+## 🎯 What This Project Represents
+
+This project was built as a practical backend engineering exercise and as a foundation for further AI engineering work.
+
+The final stack is:
 
 ```text
+Python
+  ↓
 FastAPI
-   ↓
-External APIs
-   ↓
-Testing
-   ↓
+  ↓
+GitHub REST API
+  ↓
+Service Layer
+  ↓
+SQLAlchemy
+  ↓
 PostgreSQL
-   ↓
-LLM APIs
-   ↓
-Embeddings
-   ↓
-RAG
-   ↓
-AI-powered Repository Intelligence
+  ↓
+pytest
 ```
 
-## 📚 Project Status
-
-**Current status:** 🚧 In development
-
-The current version has a working FastAPI backend, GitHub API integration, structured responses, error handling, and unit tests with mocked external dependencies.
-
-The next development stage is **PostgreSQL persistence**.
+**Project complete. 🚀**

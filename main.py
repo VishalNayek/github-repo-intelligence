@@ -1,18 +1,32 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from schemas import RepoResponse, RepoStatsResponse
 from github_client import GithubClient
 from service import RepositoryService, RepositoryNotFoundError, GithubAPIError
+from database import SessionLocal
+from repository import RepoRepository
 api = FastAPI()
 
 client = GithubClient()
-service = RepositoryService(client)
+
+
+def get_db():
+    session = SessionLocal()
+    try:
+        yield session
+    finally:
+        session.close()
+
+def get_service(session = Depends(get_db)):
+    repo_repository = RepoRepository(session)
+    service = RepositoryService(client, repo_repository)
+    return service
 
 @api.get("/")
 def get_root():
     return {"message" : "Welcome to Github Repo Intelligence"}
 
 @api.get("/repositories/{owner}/{repo}", response_model=RepoResponse)
-def get_repo(owner : str, repo : str):
+def get_repo(owner : str, repo : str, service = Depends(get_service)):
     try:
         data = service.get_repository(owner, repo)
         return data
@@ -22,7 +36,7 @@ def get_repo(owner : str, repo : str):
         raise HTTPException(status_code=503, detail="Github API error.")
 
 @api.get("/repositories/{owner}/{repo}/stats", response_model=RepoStatsResponse)
-def get_repo_stats(owner : str, repo : str):
+def get_repo_stats(owner : str, repo : str, service = Depends(get_service)):
     try:
         data = service.get_repository(owner, repo)
         stats = {
